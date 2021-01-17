@@ -141,6 +141,7 @@ int main(int argc, const char* argv[]) {
 
     node_type* parent = nullptr;  // nullptr if no parent
     weight_type weight = 0;       // cumulative weight
+    uint32_t height = 0;          // height of the node (longest distance from a leaf)
     char bit = -1;                // 0 or 1, assigned while the tree is being built
   };
 
@@ -159,7 +160,8 @@ int main(int argc, const char* argv[]) {
   for (int i = 0; i < alphabet_size; ++i) {
     tmp.push_back(&nodes[i]);
   }
-  std::priority_queue queue{[](node_type const* left, node_type const* right) { return left->weight > right->weight; }, tmp};
+  auto compare_nodes = [](node_type const* left, node_type const* right) { return left->weight == right->weight ? left->height > right->height : left->weight > right->weight; };
+  std::priority_queue queue(compare_nodes, tmp);
   tmp.clear();
 
   // combine the two lowest-weight nodes form the queue to create a new node with the sum of their weight
@@ -170,6 +172,7 @@ int main(int argc, const char* argv[]) {
     node_type* second = queue.top();
     queue.pop();
     node_type* node = &nodes.emplace_back(first->weight + second->weight);
+    node->height = std::max(first->height, second->height) + 1;
     first->parent = node;
     first->bit = 0;
     second->parent = node;
@@ -182,6 +185,7 @@ int main(int argc, const char* argv[]) {
       queue.push(node);
     }
   }
+  assert(root->height <= 64);
 
   // check that the queue is empty and the tree has the expected size
   assert(queue.empty());
@@ -191,8 +195,6 @@ int main(int argc, const char* argv[]) {
   std::vector<code_point> huffman_code;
   huffman_code.resize(alphabet_size);
 
-  int min_depth = alphabet_size;
-  int max_depth = 0;
   encoded_type buf;
   for (int i = 0; i < alphabet_size; ++i) {
     // reset the temporary buffer
@@ -204,16 +206,7 @@ int main(int argc, const char* argv[]) {
       buf.value |= static_cast<uint64_t>(node->bit) << buf.size;
       ++buf.size;
     }
-    assert(buf.size <= 64);
     huffman_code[i] = {(alphabet_type)i, buf};
-
-    // keep track of the minimum and maximum length of all the Huffman codes
-    if (buf.size > min_depth) {
-      min_depth = buf.size;
-    }
-    if (buf.size < max_depth) {
-      max_depth = buf.size;
-    }
   }
 
   // print the weight, frequency and Huffman code of each byte
