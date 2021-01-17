@@ -21,7 +21,7 @@ using alphabet_type = unsigned char;  // type of the symbols that compose the al
 constexpr int alphabet_bits = 8;      // number of bits needed to encode one input symbol
 constexpr int alphabet_size = 256;    // number of different symbols that make up the input alphabet
 
-using weight_type = uint64_t;         // type used to store the weight of each symbol
+using weight_type = uint64_t;  // type used to store the weight of each symbol
 
 // According to
 //   Abu-Mostafa, Y.S. (California Institute of Technology), and R. J. McEliece, "Maximal Codeword Lengths in Huffman Codes",
@@ -113,8 +113,8 @@ int main(int argc, const char* argv[]) {
 
   // buffer the input data
   // FIXME this needs to be rewritten to support non-8 bit characters
-  std::vector<alphabet_type> buffer(std::istreambuf_iterator<char>(*in), {});
-  std::cerr << "read " << buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
+  std::vector<alphabet_type> input_buffer(std::istreambuf_iterator<char>(*in), {});
+  std::cerr << "read " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
   std::cerr << std::endl;
 
   // close the input stream
@@ -123,14 +123,14 @@ int main(int argc, const char* argv[]) {
   }
 
   // measure the frequency for the input data
-  for (alphabet_type character : buffer) {
-    ++weights[character];
+  for (alphabet_type symbol : input_buffer) {
+    ++weights[symbol];
   }
 
   /*
-  // print the frequency of each character
+  // print the frequency of each symbol
   for (int i = 0; i < alphabet_size; ++i) {
-    std::cerr << representation(i) << ": " << (double) weights[i] / buffer.size() << std::endl;
+    std::cerr << representation(i) << ": " << (double) weights[i] / input_buffer.size() << std::endl;
   }
   std::cerr << std::endl;
   */
@@ -235,7 +235,7 @@ int main(int argc, const char* argv[]) {
   std::cerr << "canonical Huffman coding" << std::endl;
   for (auto const& point : huffman_code) {
     auto weight = weights[point.value];
-    std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double) weight / buffer.size(), point.code.to_string()) << std::endl;
+    std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double)weight / input_buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
 
