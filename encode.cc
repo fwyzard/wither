@@ -7,6 +7,8 @@
 #include <queue>
 #include <vector>
 
+#include <boost/dynamic_bitset.hpp>
+
 #include <fmt/printf.h>
 
 namespace {
@@ -238,6 +240,35 @@ int main(int argc, const char* argv[]) {
     std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double)weight / input_buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
+
+  // build an encoding map from the canonical Huffman coding
+  std::vector<encoded_type> encoding(alphabet_size);
+  for (auto const& point : huffman_code) {
+    encoding[point.value] = point.code;
+  }
+
+  // encode the input according to the Huffman coding
+  boost::dynamic_bitset<uint8_t> encoding_buffer;
+  encoding_buffer.reserve(input_buffer.size() * alphabet_bits);
+  for (auto symbol : input_buffer) {
+    encoded_type code = encoding[symbol];
+    while (code.size > 0) {
+      --code.size;
+      encoding_buffer.push_back((code.value >> code.size) & 0x01);
+    }
+  }
+
+  std::vector<uint8_t> output_buffer;
+  output_buffer.resize(encoding_buffer.num_blocks());
+  to_block_range(encoding_buffer, output_buffer.begin());
+
+  //
+  std::cerr << "input buffer size:  " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
+  std::cerr << "output buffer size: " << output_buffer.size() << " bytes" << std::endl;
+
+  out->write((const char*) output_buffer.data(), output_buffer.size());
+  out->flush();
+  std::cerr << "output buffer size: " << out->tellp() << " bytes" << std::endl;
 
   // close the output stream
   if (out != &std::cout) {
