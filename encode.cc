@@ -7,18 +7,62 @@
 #include <queue>
 #include <vector>
 
-#include <boost/dynamic_bitset.hpp>
-
 #include <fmt/printf.h>
+
+namespace {
+
+  template <typename T>
+  constexpr T constexpr_log2(T value) {
+    return value == 0 ? std::numeric_limits<T>::lowest() : value == 1 ? 0 : 1 + constexpr_log2(value / 2);
+  }
+}  // namespace
 
 using alphabet_type = unsigned char;  // type of the "charachters" that compose the alphabet of the input data
 constexpr int alphabet_bits = 8;      // number of bits needed to encode one input character
 constexpr int alphabet_size = 256;    // number of different characters that make up the input alphabet
 
-using encoded_type = boost::dynamic_bitset<uint16_t>;
+// According to
+//   Abu-Mostafa, Y.S. (California Institute of Technology), and R. J. McEliece, "Maximal Codeword Lengths in Huffman Codes",
+//   The Telecommunications and Data Acquisition Progress Report 42-110: April-June 1992, pp. 188-193, August 15, 1992.
+// a Huffman coding is limited to N bits if the smallest probability to encode is greater than 1 / F(N+3), where F(K) is the K-th Fibonacci number.
+//                               1
+// Thus, for N = 16 bits, p > ------- = 1 / 4181 = 0.0023917...
+//                             F(19)
+//
+// In turn, this can only happen if there are more than 4181 input symbols. Thus, assuming 1-byte symbols, any byte from an input data of up to
+// 4181 byts can always be encoded by at most 16 bits.
+//
+// Some examples:
+//
+//    max length | smallest probability greater than         | min input size for 1-byte symbols
+//   ----------- | ----------------------------------------- | ---------------------------------
+//     16 bits   | 1 / F(19) = 1 /           4181 ~ 2^ -12   |     4.08 KiB
+//     24 bits   | 1 / F(27) = 1 /         196418 ~ 2^ -17.6 |   191.81 KiB
+//     32 bits   | 1 / F(33) = 1 /        3524578 ~ 2^ -21.7 |     3.36 MiB
+//     48 bits   | 1 / F(51) = 1 /    20365011074 ~ 2^ -34.2 |    18.97 GiB
+//     64 bits   | 1 / F(67) = 1 / 44945570212853 ~ 2^ -45.4 |    48.88 TiB
+//
+// It seems safe to assume that 64 bits should suffice for all reasonable input datasets.
+//
+// A length-limited Huffman coding can be further restricted to have all symbols envoded by a smaller, fixed number of bits.
+
+struct encoded_type {
+  // FIXME add checks that size <= 64
+  uint64_t value = 0;
+  uint8_t size = 0;
+
+  std::string to_string() const {
+    std::string out(size, '\0');
+    for (uint8_t i = 0; i < size; ++i) {
+      out[i] = (value & (0x01 << (size - i - 1)) ? '1' : '0');
+    }
+    return out;
+  }
+};
+
 struct code_point {
-  alphabet_type value;
-  encoded_type code;
+  alphabet_type value = 0;
+  encoded_type code = {};
 };
 
 std::string representation(alphabet_type i) {
@@ -146,31 +190,28 @@ int main(int argc, const char* argv[]) {
   std::vector<code_point> huffman_code;
   huffman_code.resize(alphabet_size);
 
-  int depth;
   int min_depth = alphabet_size;
   int max_depth = 0;
-  encoded_type buf(alphabet_size, 0);
+  encoded_type buf;
   for (int i = 0; i < alphabet_size; ++i) {
-    // make sure the temporary buffer can hold any possible Huffman coding over the given alphabet
-    buf.resize(alphabet_size);
-    buf.reset();
-    depth = 0;
+    // reset the temporary buffer
+    buf.value = 0;
+    buf.size = 0;
     // start from the leaf and traverse the tree until the root
     for (node_type const* node = &nodes[i]; node != root; node = node->parent) {
-      // non-root nodes have a bit value of 0 or 1
-      buf[depth] = node->bit;
-      ++depth;
+      // set the non-zero bits
+      buf.value |= static_cast<uint64_t>(node->bit) << buf.size;
+      ++buf.size;
     }
-    // resize the temporary buffer to the length of the Huffman coding for this character
-    buf.resize(depth);
+    assert(buf.size <= 64);
     huffman_code[i] = {(alphabet_type)i, buf};
 
     // keep track of the minimum and maximum length of all the Huffman codes
-    if (depth > min_depth) {
-      min_depth = depth;
+    if (buf.size > min_depth) {
+      min_depth = buf.size;
     }
-    if (depth < max_depth) {
-      max_depth = depth;
+    if (buf.size < max_depth) {
+      max_depth = buf.size;
     }
   }
 
@@ -178,40 +219,30 @@ int main(int argc, const char* argv[]) {
   std::cerr << "Huffman coding" << std::endl;
   for (auto const& point : huffman_code) {
     auto weight = weights[point.value];
-    std::string code;
-    to_string(point.code, code);
-    std::cerr << fmt::sprintf("%s: %10.0f (%8.4f) \"%s\"", representation(point.value), weight, weight / buffer.size(), code) << std::endl;
+    std::cerr << fmt::sprintf("%s: %10.0f (%8.4f) \"%s\"", representation(point.value), weight, weight / buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
 
   // convert to a canonical Huffman coding
 
   // 1. sort the Huffman codes by length
-  std::sort(huffman_code.begin(), huffman_code.end(), [](code_point const& left, code_point const& right) { return left.code.size() == right.code.size() ? left.value < right.value : left.code.size() < right.code.size(); });
+  std::sort(huffman_code.begin(), huffman_code.end(), [](code_point const& left, code_point const& right) { return left.code.size == right.code.size ? left.value < right.value : left.code.size < right.code.size; });
 
   // 2. renumber the codes starting for 0
   encoded_type last_code;
   for (auto& point : huffman_code) {
-    if (last_code.empty()) {
+    if (last_code.size == 0) {
       // first code point: set the Huffman coding to all 0
-      point.code.reset();
+      point.code.value = 0;
       last_code = point.code;
     } else {
       // next code point: increment the value of the last code point
-      std::vector<encoded_type::block_type> value(point.code.num_blocks(), 0);
-      to_block_range(last_code, value.begin());
-      for (auto& block: value) {
-        // increment the first block, or if there was an overflow
-        block +=1;
-        // if the addition did not overflow, do not increment the next blocks
-        if (block != 0) break;
-      }
-      from_block_range(value.begin(), value.end(), last_code);
+      ++last_code.value;
 
-      // if the new code point is larger than the previous one, extend (left shift) as needed
-      if (auto delta = point.code.size() - last_code.size(); delta > 0) {
-        last_code.resize(point.code.size());
-        last_code <<= delta;
+      // if the new code point is longer than the previous one, extend (left shift) as needed
+      if (auto shift = point.code.size - last_code.size; shift > 0) {
+        last_code.size = point.code.size;
+        last_code.value <<= shift;
       }
 
       // update the code point
@@ -223,9 +254,7 @@ int main(int argc, const char* argv[]) {
   std::cerr << "canonical Huffman coding" << std::endl;
   for (auto const& point : huffman_code) {
     auto weight = weights[point.value];
-    std::string code;
-    to_string(point.code, code);
-    std::cerr << fmt::sprintf("%s: %10.0f (%8.4f) \"%s\"", representation(point.value), weight, weight / buffer.size(), code) << std::endl;
+    std::cerr << fmt::sprintf("%s: %10.0f (%8.4f) \"%s\"", representation(point.value), weight, weight / buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
 
