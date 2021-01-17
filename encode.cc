@@ -17,9 +17,11 @@ namespace {
   }
 }  // namespace
 
-using alphabet_type = unsigned char;  // type of the "charachters" that compose the alphabet of the input data
-constexpr int alphabet_bits = 8;      // number of bits needed to encode one input character
-constexpr int alphabet_size = 256;    // number of different characters that make up the input alphabet
+using alphabet_type = unsigned char;  // type of the symbols that compose the alphabet of the input data
+constexpr int alphabet_bits = 8;      // number of bits needed to encode one input symbol
+constexpr int alphabet_size = 256;    // number of different symbols that make up the input alphabet
+
+using weight_type = uint64_t;         // type used to store the weight of each symbol
 
 // According to
 //   Abu-Mostafa, Y.S. (California Institute of Technology), and R. J. McEliece, "Maximal Codeword Lengths in Huffman Codes",
@@ -47,7 +49,6 @@ constexpr int alphabet_size = 256;    // number of different characters that mak
 // A length-limited Huffman coding can be further restricted to have all symbols envoded by a smaller, fixed number of bits.
 
 struct encoded_type {
-  // FIXME add checks that size <= 64
   uint64_t value = 0;
   uint8_t size = 0;
 
@@ -81,9 +82,9 @@ std::string representation(alphabet_type i) {
 
 int main(int argc, const char* argv[]) {
   // weights for each byte, proportional to the frequency with which they are found in the input
-  float weights[alphabet_size];
+  weight_type weights[alphabet_size];
   for (int i = 0; i < alphabet_size; ++i) {
-    weights[i] = 0.;
+    weights[i] = 0;
   }
 
   // no need to synchronise the C++ I/O streams with the C I/O streams
@@ -129,17 +130,17 @@ int main(int argc, const char* argv[]) {
   /*
   // print the frequency of each character
   for (int i = 0; i < alphabet_size; ++i) {
-    std::cerr << representation(i) << ": " << weights[i] / buffer.size() << std::endl;
+    std::cerr << representation(i) << ": " << (double) weights[i] / buffer.size() << std::endl;
   }
   std::cerr << std::endl;
   */
 
   struct node_type {
     node_type() = default;
-    node_type(float weight) : weight(weight) {}
+    node_type(weight_type weight) : weight(weight) {}
 
     node_type* parent = nullptr;  // nullptr if no parent
-    float weight = 0.;            // cumulative weight
+    weight_type weight = 0;       // cumulative weight
     char bit = -1;                // 0 or 1, assigned while the tree is being built
   };
 
@@ -219,7 +220,7 @@ int main(int argc, const char* argv[]) {
   std::cerr << "Huffman coding" << std::endl;
   for (auto const& point : huffman_code) {
     auto weight = weights[point.value];
-    std::cerr << fmt::sprintf("%s: %10.0f (%8.4f) \"%s\"", representation(point.value), weight, weight / buffer.size(), point.code.to_string()) << std::endl;
+    std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double) weight / buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
 
@@ -254,7 +255,7 @@ int main(int argc, const char* argv[]) {
   std::cerr << "canonical Huffman coding" << std::endl;
   for (auto const& point : huffman_code) {
     auto weight = weights[point.value];
-    std::cerr << fmt::sprintf("%s: %10.0f (%8.4f) \"%s\"", representation(point.value), weight, weight / buffer.size(), point.code.to_string()) << std::endl;
+    std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double) weight / buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
 
