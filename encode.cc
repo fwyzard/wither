@@ -142,7 +142,6 @@ int main(int argc, const char* argv[]) {
     node_type* parent = nullptr;  // nullptr if no parent
     weight_type weight = 0;       // cumulative weight
     uint32_t height = 0;          // height of the node (longest distance from a leaf)
-    char bit = -1;                // 0 or 1, assigned while the tree is being built
   };
 
   // reserve enough space for all the nodes (leaves and intermediate nodes)
@@ -174,9 +173,7 @@ int main(int argc, const char* argv[]) {
     node_type* node = &nodes.emplace_back(first->weight + second->weight);
     node->height = std::max(first->height, second->height) + 1;
     first->parent = node;
-    first->bit = 0;
     second->parent = node;
-    second->bit = 1;
     if (queue.empty()) {
       // the node is the root of the tree
       root = node;
@@ -202,27 +199,17 @@ int main(int argc, const char* argv[]) {
     buf.size = 0;
     // start from the leaf and traverse the tree until the root
     for (node_type const* node = &nodes[i]; node != root; node = node->parent) {
-      // set the non-zero bits
-      buf.value |= static_cast<uint64_t>(node->bit) << buf.size;
       ++buf.size;
     }
     huffman_code[i] = {(alphabet_type)i, buf};
   }
 
-  // print the weight, frequency and Huffman code of each byte
-  std::cerr << "Huffman coding" << std::endl;
-  for (auto const& point : huffman_code) {
-    auto weight = weights[point.value];
-    std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double) weight / buffer.size(), point.code.to_string()) << std::endl;
-  }
-  std::cerr << std::endl;
-
-  // convert to a canonical Huffman coding
+  // build the canonical Huffman coding
 
   // 1. sort the Huffman codes by length
   std::sort(huffman_code.begin(), huffman_code.end(), [](code_point const& left, code_point const& right) { return left.code.size == right.code.size ? left.value < right.value : left.code.size < right.code.size; });
 
-  // 2. renumber the codes starting for 0
+  // 2. assign an encoding to each symbol, starting from 0
   encoded_type last_code;
   for (auto& point : huffman_code) {
     if (last_code.size == 0) {
