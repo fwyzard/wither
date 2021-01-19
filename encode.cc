@@ -191,6 +191,7 @@ int main(int argc, const char* argv[]) {
   assert(nodes.size() == alphabet_size * 2 - 1);
 
   // traverse the tree and build the explicit encoding
+  uint64_t output_size = 0;
   std::vector<code_point> huffman_code;
   huffman_code.resize(alphabet_size);
 
@@ -204,6 +205,8 @@ int main(int argc, const char* argv[]) {
       ++buf.size;
     }
     huffman_code[i] = {(alphabet_type)i, buf};
+    // count how many bits are used in total by all the symbol
+    output_size += weights[i] * buf.size;
   }
 
   // build the canonical Huffman coding
@@ -240,6 +243,8 @@ int main(int argc, const char* argv[]) {
     std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double)weight / input_buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
+  std::cerr << "input buffer size:  " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
+  std::cerr << "output buffer size: " << (output_size + 7) / 8 << " bytes" << std::endl;
 
   // build an encoding map from the canonical Huffman coding
   std::vector<encoded_type> encoding(alphabet_size);
@@ -249,7 +254,7 @@ int main(int argc, const char* argv[]) {
 
   // encode the input according to the Huffman coding
   boost::dynamic_bitset<uint8_t> encoding_buffer;
-  encoding_buffer.reserve(input_buffer.size() * alphabet_bits);
+  encoding_buffer.reserve(output_size);
   for (auto symbol : input_buffer) {
     encoded_type code = encoding[symbol];
     while (code.size > 0) {
@@ -261,10 +266,6 @@ int main(int argc, const char* argv[]) {
   std::vector<uint8_t> output_buffer;
   output_buffer.resize(encoding_buffer.num_blocks());
   to_block_range(encoding_buffer, output_buffer.begin());
-
-  //
-  std::cerr << "input buffer size:  " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
-  std::cerr << "output buffer size: " << output_buffer.size() << " bytes" << std::endl;
 
   out->write((const char*) output_buffer.data(), output_buffer.size());
   out->flush();
