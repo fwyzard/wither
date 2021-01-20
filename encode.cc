@@ -252,15 +252,37 @@ int main(int argc, const char* argv[]) {
     encoding[point.value] = point.code;
   }
 
-  // encode the input according to the Huffman coding
+  // write the canonical Huffman coding to the output buffer
+  uint64_t header_size = 64                  // 64 bit:            encode the message size, including the header itself
+                       + 16                  // 16 bit:            encode the number of symbols in the alphabet
+                                             //                    [NB: could be replaced by alphabet_bits - 1]
+                       + 6 * alphabet_size;  //  6 bit per symbol: encode the size of each symbol's coding - 1
+
+  // bitstream used to encode the input according to the canonical Huffman coding
   boost::dynamic_bitset<uint8_t> encoding_buffer;
-  encoding_buffer.reserve(output_size);
+  encoding_buffer.reserve(header_size + output_size);
+
+  // insert the "size" lowest significant bits of "value" into the "encoding_buffer"
+  auto insert = [&] (size_t size, uint64_t value) {
+    while (size > 0) {
+      --size;
+      encoding_buffer.push_back((value >> size) & 0x01);
+    }
+  };
+
+  // encode the header
+  insert(64, (header_size + output_size + 7) / 8);
+
+  // encode the canonical Huffman coding
+  insert(16, huffman_code.size());
+  for (auto const& point : huffman_code) {
+    insert(6, point.code.size);
+  }
+
+  // encode the input according to the Huffman coding
   for (auto symbol : input_buffer) {
     encoded_type code = encoding[symbol];
-    while (code.size > 0) {
-      --code.size;
-      encoding_buffer.push_back((code.value >> code.size) & 0x01);
-    }
+    insert(code.size, code.value);
   }
 
   std::vector<uint8_t> output_buffer;
