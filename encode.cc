@@ -115,9 +115,7 @@ int main(int argc, const char* argv[]) {
 
   // buffer the input data
   // FIXME this needs to be rewritten to support non-8 bit characters
-  std::vector<alphabet_type> input_buffer(std::istreambuf_iterator<char>(*in), {});
-  std::cerr << "read " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
-  std::cerr << std::endl;
+  std::vector<uint8_t> input_buffer(std::istreambuf_iterator<char>(*in), {});
 
   // close the input stream
   if (in != &std::cin) {
@@ -243,8 +241,6 @@ int main(int argc, const char* argv[]) {
     std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double)weight / input_buffer.size(), point.code.to_string()) << std::endl;
   }
   std::cerr << std::endl;
-  std::cerr << "input buffer size:  " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
-  std::cerr << "output buffer size: " << (output_size + 7) / 8 << " bytes" << std::endl;
 
   // build an encoding map from the canonical Huffman coding
   std::vector<encoded_type> encoding(alphabet_size);
@@ -291,6 +287,9 @@ int main(int argc, const char* argv[]) {
 
   out->write((const char*) output_buffer.data(), output_buffer.size());
   out->flush();
+  std::cerr << "input buffer size:  " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
+  std::cerr << "output buffer size: " << (header_size + output_size + 7) / 8 << " bytes" << std::endl;
+  std::cerr << "output buffer size: " << encoding_buffer.num_blocks()  << " bytes" << std::endl;
   std::cerr << "output buffer size: " << out->tellp() << " bytes" << std::endl;
 
   // close the output stream
