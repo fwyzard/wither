@@ -7,17 +7,9 @@
 #include <queue>
 #include <vector>
 
-#include <boost/dynamic_bitset.hpp>
-
 #include <fmt/printf.h>
 
-namespace {
-
-  template <typename T>
-  constexpr T constexpr_log2(T value) {
-    return value == 0 ? std::numeric_limits<T>::lowest() : value == 1 ? 0 : 1 + constexpr_log2(value / 2);
-  }
-}  // namespace
+#include "bitstream.h"
 
 using alphabet_type = unsigned char;  // type of the symbols that compose the alphabet of the input data
 constexpr int alphabet_bits = 8;      // number of bits needed to encode one input symbol
@@ -255,41 +247,32 @@ int main(int argc, const char* argv[]) {
                        + 6 * alphabet_size;  //  6 bit per symbol: encode the size of each symbol's coding - 1
 
   // bitstream used to encode the input according to the canonical Huffman coding
-  boost::dynamic_bitset<uint8_t> encoding_buffer;
+  bitstream encoding_buffer;
   encoding_buffer.reserve(header_size + output_size);
 
-  // insert the "size" lowest significant bits of "value" into the "encoding_buffer"
-  auto insert = [&] (size_t size, uint64_t value) {
-    while (size > 0) {
-      --size;
-      encoding_buffer.push_back((value >> size) & 0x01);
-    }
-  };
-
   // encode the header
-  insert(64, (header_size + output_size + 7) / 8);
+  encoding_buffer.write(64, (header_size + output_size + 7) / 8);
 
   // encode the canonical Huffman coding
-  insert(16, huffman_code.size());
+  encoding_buffer.write(16, huffman_code.size());
   for (auto const& point : huffman_code) {
-    insert(6, point.code.size);
+    // 6 bit per symbol: encode the size of each symbol's coding - 1
+    encoding_buffer.write(6, point.code.size - 1);
   }
 
   // encode the input according to the Huffman coding
   for (auto symbol : input_buffer) {
     encoded_type code = encoding[symbol];
-    insert(code.size, code.value);
+    encoding_buffer.write(code.size, code.value);
   }
 
-  std::vector<uint8_t> output_buffer;
-  output_buffer.resize(encoding_buffer.num_blocks());
-  to_block_range(encoding_buffer, output_buffer.begin());
+  std::vector<char> output_buffer = encoding_buffer.bytes();
 
   out->write((const char*) output_buffer.data(), output_buffer.size());
   out->flush();
   std::cerr << "input buffer size:  " << input_buffer.size() << " " << alphabet_bits << "-bit characters" << std::endl;
   std::cerr << "output buffer size: " << (header_size + output_size + 7) / 8 << " bytes" << std::endl;
-  std::cerr << "output buffer size: " << encoding_buffer.num_blocks()  << " bytes" << std::endl;
+  std::cerr << "output buffer size: " << (encoding_buffer.size() + 7) / 8  << " bytes" << std::endl;
   std::cerr << "output buffer size: " << out->tellp() << " bytes" << std::endl;
 
   // close the output stream
