@@ -231,6 +231,7 @@ int main(int argc, const char* argv[]) {
 
   // write the canonical Huffman coding to the output buffer
   uint64_t header_size = 64                  // 64 bit:            encode the message size, including the header itself
+                       + 64                  // 64 bit:            encode the original message size, in symbols
                        + 16                  // 16 bit:            encode the number of symbols in the alphabet
                                              //                    [NB: could be replaced by alphabet_bits - 1]
                        + 6 * alphabet_size;  //  6 bit per symbol: encode the size of each symbol's coding - 1
@@ -240,13 +241,14 @@ int main(int argc, const char* argv[]) {
   encoding_buffer.reserve(header_size + output_size);
 
   // encode the header
-  encoding_buffer.write(64, (header_size + output_size + 7) / 8);
+  encoding_buffer.write(64, header_size + output_size);
+  encoding_buffer.write(64, input_buffer.size());
 
   // encode the canonical Huffman coding
-  encoding_buffer.write(16, huffman_code.size());
-  for (auto const& point : huffman_code) {
+  encoding_buffer.write(16, encoding.size());
+  for (auto const& code : encoding) {
     // 6 bit per symbol: encode the size of each symbol's coding - 1
-    encoding_buffer.write(6, point.code.size - 1);
+    encoding_buffer.write(6, code.size - 1);
   }
 
   // encode the input according to the Huffman coding
