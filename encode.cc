@@ -48,9 +48,11 @@ struct encoded_type {
   uint8_t size = 0;
 
   std::string to_string() const {
-    std::string out(size, '\0');
+    std::string out(size + 2, '\0');
+    out[0] = '0';
+    out[1] = 'b';
     for (uint8_t i = 0; i < size; ++i) {
-      out[i] = (value & (0x01 << i) ? '1' : '0');
+      out[i+2] = (value & (0x01 << i) ? '1' : '0');
     }
     return out;
   }
@@ -60,20 +62,6 @@ struct code_point {
   alphabet_type value = 0;
   encoded_type code = {};
 };
-
-std::string representation(alphabet_type i) {
-  static const char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-  int chars = (alphabet_bits + 3) / 4;  // round up to the number of hex characters
-  std::string out(chars + 2, '\0');
-  out[0] = '0';
-  out[1] = 'x';
-  while (chars > 0) {
-    --chars;
-    out[chars + 2] = hex[i % 16];
-    i = i / 16;
-  }
-  return out;
-}
 
 int main(int argc, const char* argv[]) {
   // weights for each byte, proportional to the frequency with which they are found in the input
@@ -123,7 +111,7 @@ int main(int argc, const char* argv[]) {
   /*
   // print the frequency of each symbol
   for (int i = 0; i < alphabet_size; ++i) {
-    std::cerr << representation(i) << ": " << (double) weights[i] / input_buffer.size() << std::endl;
+    std::cerr << fmt::sprintf("0x%02x: %10d (%8.4f)", i, weights[i], (double)weights[i] / input_buffer.size()) << std::endl;
   }
   std::cerr << std::endl;
   */
@@ -227,19 +215,19 @@ int main(int argc, const char* argv[]) {
     }
   }
 
-  // print the weight, frequency and canonical Huffman coding
-  std::cerr << "canonical Huffman coding" << std::endl;
-  for (auto const& point : huffman_code) {
-    auto weight = weights[point.value];
-    std::cerr << fmt::sprintf("%s: %10d (%8.4f) \"%s\"", representation(point.value), weight, (double)weight / input_buffer.size(), point.code.to_string()) << std::endl;
-  }
-  std::cerr << std::endl;
-
   // build an encoding map from the canonical Huffman coding
   std::vector<encoded_type> encoding(alphabet_size);
   for (auto const& point : huffman_code) {
     encoding[point.value] = point.code;
   }
+
+  // print the weight, frequency and canonical Huffman coding
+  std::cerr << "canonical Huffman coding" << std::endl;
+  for (size_t i = 0; i < encoding.size(); ++i) {
+    auto weight = weights[i];
+    std::cerr << fmt::sprintf("0x%02x: %10d / %10d (%8.4f) \"%s\"", i, weight, input_buffer.size(), (double)weight / input_buffer.size(), encoding[i].to_string()) << std::endl;
+  }
+  std::cerr << std::endl;
 
   // write the canonical Huffman coding to the output buffer
   uint64_t header_size = 64                  // 64 bit:            encode the message size, including the header itself
