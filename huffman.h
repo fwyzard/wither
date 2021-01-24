@@ -97,8 +97,7 @@ public:
     }
 
     /*
-    // debug
-    std::cerr << "input size: " << original_size_ << std::endl;
+    // print the weight and frequency for the input symbols
     for (unsigned int i = 0; i < alphabet_size; ++i) {
       auto weight = weights_[i];
       std::cerr << fmt::sprintf("0x%02x: %10d (%8.4f)", i, weight, (double)weight / original_size_) << std::endl;
@@ -226,15 +225,13 @@ public:
           prev_size = size;
         }
       }
-      /*
-      std::cerr << "value: " << value << "\tsize: " << (uint64_t) size << "\tcoding: " << to_string(invert_bits(value, size), size) << std::endl;
-      */
 
       // store the coding in little-endian format, with the first bit of the Huffman encoding in the LSB
       lengths_[static_cast<uint8_t>(symbol)] = size;
       encoding_[static_cast<uint8_t>(symbol)] = invert_bits(value, size);
     }
 
+    /*
     // print the weight, frequency and Huffman coding
     std::cerr << "canonical Huffman coding" << std::endl;
     for (unsigned int i = 0; i < alphabet_size; ++i) {
@@ -242,6 +239,7 @@ public:
       std::cerr << fmt::sprintf("0x%02x: %10d / %10d (%8.4f) \"%s\"", i, weight, original_size_, (double)weight / original_size_, to_string(encoding_[i], lengths_[i])) << std::endl;
     }
     std::cerr << std::endl;
+    */
   }
 
 

@@ -68,10 +68,12 @@ int main(int argc, const char* argv[]) {
 
   out->write((const char*) output_buffer.data(), output_buffer.size());
   out->flush();
+  /*
   std::cerr << "input buffer size:  " << input_buffer.size() << " " << huffman_encoding::alphabet_bits << "-bit characters" << std::endl;
   std::cerr << "output buffer size: " << (encoding.header_size_ + encoding.encoded_size_ + 7) / 8 << " bytes" << std::endl;
   std::cerr << "output buffer size: " << (encoding_buffer.size() + 7) / 8  << " bytes" << std::endl;
   std::cerr << "output buffer size: " << out->tellp() << " bytes" << std::endl;
+  */
 
   // close the output stream
   if (out != &std::cout) {
