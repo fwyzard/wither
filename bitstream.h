@@ -1,8 +1,11 @@
 #ifndef bitstream_h
 #define bitstream_h
 
+#include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <deque>
+#include <vector>
 
 #include "log2.h"
 
@@ -95,7 +98,7 @@ public:
         buffer_.resize(to_block_count(size_));
       }
     }
-    // write the new bits starting from the position identified by write_index_
+    // write the new bits starting from the position identified by `write_index_`
     // check if there is a partially filled block
     if (size_type partial = write_index_ & bitmask_bits; partial > 0) {
       // count how many bits can be written there, up to the input size
@@ -104,7 +107,7 @@ public:
       block_type mask = ((1 << (partial + available)) - 1) & ~ ((1 << partial) - 1);
       buffer_[write_index_ >> block_bits] &= ~ mask;
       buffer_[write_index_ >> block_bits] |= (static_cast<block_type>(value & ((1 << available) - 1))) << partial;
-      // increase the write_index_ and remove the inserted bits from the input
+      // increase the `write_index_` and remove the inserted bits from the input
       write_index_ += available;
       value >>= available;
       count -= available;
@@ -113,9 +116,13 @@ public:
     // write the next bits one block at a time
     while (count >= block_size) {
       buffer_[write_index_ >> block_bits] = static_cast<block_type>(value & all_ones);
-      // increase the write_index_ and remove the inserted bits from the input
+      // increase the `write_index_` and remove the inserted bits from the input
       write_index_ += block_size;
-      value >>= block_size;
+      if (block_size >= sizeof(T) * 8) {
+        value = 0;
+      } else {
+        value >>= block_size;
+      }
       count -= block_size;
     }
     // partially fill the next block with the last bits
@@ -123,11 +130,75 @@ public:
       block_type mask = (1 << (count)) - 1;
       buffer_[write_index_ >> block_bits] &= ~ mask;
       buffer_[write_index_ >> block_bits] |= static_cast<block_type>(value & mask);
-      // increase the write_index_ and remove the inserted bits from the input
+      // increase the `write_index_` and remove the inserted bits from the input
       write_index_ += count;
       value >>= count;
       count = 0;
     }
+  }
+
+  // peek up to `count` bits from the stream into `value`, and return the number of bits actually read
+  template <typename T>
+  size_type peek(size_type count, T& value) {
+    // check that the parameters are valid
+    assert(count <= sizeof(T) * 8);
+    // just peeking, do not increase the actual `read_index_`
+    size_type read_index = read_index_;
+    // do not read past the end of the stream
+    count = std::min(count, size_ - read_index);
+    size_type read = 0;
+    size_type to_read = count;
+    // read `count` bits starting from the position identified by `read_index`
+
+    value = 0;
+    // check if there is a partially read block
+    if (size_type partial = read_index & bitmask_bits; partial > 0) {
+      // count how many bits can be read from it, up to the input size
+      size_type available = std::min(block_size - partial, count);
+      // read the first `available` bits from the position identified by `read_index`
+      block_type mask = (1 << available) - 1;
+      value = (buffer_[read_index >> block_bits] >> partial) & mask;
+      // increase the `read_index` and decrease the number of bits to be read
+      read_index += available;
+      to_read -= available;
+      read += available;
+    }
+    assert(to_read == 0 or (read_index & bitmask_bits) == 0);
+    // read the next bits one block at a time
+    while (to_read >= block_size) {
+      value |= static_cast<T>(buffer_[read_index >> block_bits]) << read;
+      // increase the `read_index` and decrease the number of bits to be read
+      read_index += block_size;
+      read += block_size;
+      to_read -= block_size;
+    }
+    // read part of the next block into the last bits
+    if (to_read > 0) {
+      block_type mask = (1 << (to_read)) - 1;
+      value |= static_cast<T>(buffer_[read_index >> block_bits] & mask) << read;
+      // increase the `read_index` and decrease the number of bits to be read
+      read_index += to_read;
+      read += to_read;
+      to_read = 0;
+    }
+    assert(read == count);
+    return count;
+  }
+
+  // read up to `count` bits from the stream into `value`, and return the number of bits actually read
+  template <typename T>
+  size_type read(size_type count, T& value) {
+    size_type read = peek(count, value);
+    read_index_ += read;
+    return read;
+  }
+
+  // skip up to `count` bits from the stream, and return the number of bits actually skipped
+  size_type skip(size_type count) {
+    // do not skip past the end of the stream
+    count = std::min(count, size_ - read_index_);
+    read_index_ += count;
+    return count;
   }
 
   // FIXME

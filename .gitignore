@@ -34,4 +34,5 @@
 # Buld targets
 decode
 encode
+bitstream_t
 invert_t
