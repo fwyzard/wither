@@ -8,21 +8,21 @@ LD=g++-10
 CXXFLAGS=-std=c++17 -O3 -flto -g -Wall -fPIC -MMD -march=native -mtune=native 
 LDFLAGS=-lrt -lfmt
 
-.PHONY: all clean distclean dump
+.PHONY: all clean
 
-all: encode
+all: encode invert_t
 
 
 clean:
-	rm -f *.o *.d *.asm
-
-distclean:
-	rm -f test *.o *.d *.asm
+	rm -f *.o *.d *.asm encode invert_t
 
 decode: decode.o Makefile
 	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
 
 encode: encode.o Makefile
+	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
+
+invert_t: invert_t.o Makefile
 	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
 
 %.o: %.cc Makefile

@@ -10,6 +10,7 @@
 #include <fmt/printf.h>
 
 #include "bitstream.h"
+#include "invert.h"
 
 using alphabet_type = unsigned char;  // type of the symbols that compose the alphabet of the input data
 constexpr int alphabet_bits = 8;      // number of bits needed to encode one input symbol
@@ -49,7 +50,7 @@ struct encoded_type {
   std::string to_string() const {
     std::string out(size, '\0');
     for (uint8_t i = 0; i < size; ++i) {
-      out[i] = (value & (0x01 << (size - i - 1)) ? '1' : '0');
+      out[i] = (value & (0x01 << i) ? '1' : '0');
     }
     return out;
   }
@@ -180,7 +181,7 @@ int main(int argc, const char* argv[]) {
   assert(queue.empty());
   assert(nodes.size() == alphabet_size * 2 - 1);
 
-  // traverse the tree and build the explicit encoding
+  // traverse the tree and count the encoding bit lengths
   uint64_t output_size = 0;
   std::vector<code_point> huffman_code;
   huffman_code.resize(alphabet_size);
@@ -188,7 +189,6 @@ int main(int argc, const char* argv[]) {
   encoded_type buf;
   for (int i = 0; i < alphabet_size; ++i) {
     // reset the temporary buffer
-    buf.value = 0;
     buf.size = 0;
     // start from the leaf and traverse the tree until the root
     for (node_type const* node = &nodes[i]; node != root; node = node->parent) {
@@ -222,7 +222,8 @@ int main(int argc, const char* argv[]) {
       }
 
       // update the code point
-      point.code = last_code;
+      point.code.size = last_code.size;
+      point.code.value = invert_bits(last_code.value, last_code.size);
     }
   }
 
