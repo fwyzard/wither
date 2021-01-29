@@ -4,7 +4,6 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <queue>
 #include <vector>
 
 #include <fmt/printf.h>
@@ -59,9 +58,7 @@ int main(int argc, const char* argv[]) {
 
   // encode the input according to the Huffman coding
   for (auto symbol : input_buffer) {
-    huffman_encoding::encoded_type::size_type size = encoding.lengths_[static_cast<size_t>(symbol)];
-    huffman_encoding::encoded_type::value_type value = encoding.encoding_[static_cast<size_t>(symbol)];
-    encoding_buffer.write(size, value);
+    encoding.encode(encoding_buffer, symbol);
   }
 
   std::vector<char> output_buffer = encoding_buffer.bytes();
