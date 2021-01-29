@@ -63,6 +63,26 @@ public:
     read_index_ = 0;
   }
 
+  // return the position of the read pointer
+  size_type tellg() const {
+    return read_index_;
+  }
+
+  // rewind / advance the read pointer to position `pos`, or the end of the stream
+  void seekg(size_type pos) {
+    read_index_ = std::min(pos, size_);
+  }
+
+  // return the position of the write pointer
+  size_type tellp() const {
+    return write_index_;
+  }
+
+  // rewind / advance the write pointer to position `pos`, or the end of the stream
+  void seekp(size_type pos) {
+    write_index_ = std::min(pos, size_);
+  }
+
   // write one bit to the bitstream
   void write(value_type value) {
     // check if the underlying buffer_ needs to be resized
