@@ -1,6 +1,14 @@
 #ifndef huffman_h
 #define huffman_h
 
+#include <algorithm>
+#include <cassert>
+#include <queue>
+#include <vector>
+#include <string>
+
+//#include <fmt/printf.h>
+
 #include "bitstream.h"
 #include "invert.h"
 
@@ -260,32 +268,66 @@ public:
   }
 
 
-  /*
-  // deserialise the canonical Huffman coding to a bit stream
+  // deserialise the canonical Huffman coding from a bit stream
   void deserialise(bitstream& stream) {
 
     // read the size (in bits) of the header and encoded message
-    uint64_t message_size = stream.read(64);
+    uint64_t message_size;
+    stream.read(64, message_size);
 
     // read the size (in symbols) of the decoded message
-    original_size_ = stream.read(64);
+    stream.read(64, original_size_);
 
     // check that the alphabet size matches the Huffman coding
-    uint16_t read_alphabet_size = stream.read(16);
+    uint16_t read_alphabet_size;
+    stream.read(16, read_alphabet_size);
     assert(alphabet_size == read_alphabet_size);
 
     // size of the encoded message (in bits)
-    encoded_size_ = message_size = header_size_;
+    encoded_size_ = message_size - header_size_;
 
     // read the size (in bits, - 1) of each symbol's coding
     for (encoded_type::size_type & bits: lengths_) {
-      bits = stream.read(6);
+      encoded_type::size_type bits_minus_one;
+      stream.read(6, bits_minus_one);
+      bits = bits_minus_one + 1;
     }
 
     // build the canonical Huffman coding from the legths of the encoding of each symbol
     build_canonical_coding();
   }
-  */
+
+
+  /// encode and write a symbol to a bit stream
+  void encode(bitstream& stream, alphabet_type symbol) {
+    encoded_type::size_type size = lengths_[static_cast<uint8_t>(symbol)];
+    encoded_type::value_type value = encoding_[static_cast<uint8_t>(symbol)];
+    stream.write(size, value);
+  }
+
+
+  /// read and decode a symbol from a bit stream
+  bool decode(bitstream& stream, alphabet_type& symbol) {
+    encoded_type::size_type bits = 8 * sizeof(encoded_type::value_type);
+    encoded_type::value_type value;
+    bits = stream.peek(bits, value);
+    if (bits == 0) {
+      // end of stream or error
+      return false;
+    }
+    for (int i = 0; i < alphabet_size; ++i) {
+      if (bits < lengths_[i]) {
+        continue;
+      }
+      encoded_type::value_type mask = (1ul << lengths_[i]) - 1;
+      if ((value & mask) == (encoding_[i] & mask)) {
+        symbol = i;
+        stream.skip(lengths_[i]);
+        return true;
+      }
+    }
+    return false;
+  }
 
 
 public:
@@ -306,9 +348,6 @@ public:
   // Huffman encoding of each symbol
   encoded_type::size_type lengths_[alphabet_size];
   encoded_type::value_type encoding_[alphabet_size];
-
-  // inverse mapping to speed up decoding
-  //...
 };
 
 #endif  // huffman_h
