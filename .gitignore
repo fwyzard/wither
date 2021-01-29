@@ -35,4 +35,5 @@
 decode
 encode
 bitstream_t
+huffman_t
 invert_t

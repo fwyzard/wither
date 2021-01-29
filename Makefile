@@ -10,11 +10,11 @@ LDFLAGS=-lrt -lfmt
 
 .PHONY: all clean
 
-all: encode bitstream_t invert_t
+all: encode bitstream_t huffman_t invert_t
 
 
 clean:
-	rm -f *.o *.d *.asm encode bitstream_t invert_t
+	rm -f *.o *.d *.asm encode bitstream_t huffman_t invert_t
 
 decode: decode.o Makefile
 	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
@@ -23,6 +23,9 @@ encode: encode.o Makefile
 	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
 
 bitstream_t: bitstream_t.o Makefile
+	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
+
+huffman_t: huffman_t.o Makefile
 	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) -o $@
 
 invert_t: invert_t.o Makefile
