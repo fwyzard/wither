@@ -10,7 +10,7 @@ LDFLAGS=-lrt -lfmt
 
 .PHONY: all clean
 
-all: encode bitstream_t huffman_t invert_t
+all: decode encode bitstream_t huffman_t invert_t
 
 
 clean:
