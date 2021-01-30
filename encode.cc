@@ -61,7 +61,7 @@ int main(int argc, const char* argv[]) {
     encoding.encode(encoding_buffer, symbol);
   }
 
-  std::vector<char> output_buffer = encoding_buffer.bytes();
+  std::vector<uint8_t> output_buffer = encoding_buffer.bytes();
 
   out->write((const char*) output_buffer.data(), output_buffer.size());
   out->flush();
