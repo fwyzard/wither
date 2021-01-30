@@ -43,9 +43,11 @@ public:
   // construct a stream with `bitcount` bits set to `value`
   bitstream(size_type bitcount, value_type value = 0) : buffer_(to_block_count(bitcount), value ? all_ones : all_zeroes), size_(bitcount) {}
 
+  /*
   // construct a stream from pair of input iterators to bytes
   template <typename InputIt, typename = std::enable_if_t<std::is_convertible_v<std::iterator_traits<InputIt>::value_type, block_type>>>
-  bitstream(InputIt first, InputIt last) : buffer_(first, last), size_(to_bit_size(buffer_.size())), write_index_(0) {}
+  bitstream(InputIt first, InputIt last) : buffer_(first, last), size_(to_bit_size(buffer_.size())), write_index_(size_), read_index_(0) {}
+  */
 
   // reserve space in the underlying buffer for `bitcount` bits
   void reserve(size_type bitcount) {
