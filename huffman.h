@@ -331,7 +331,7 @@ public:
 
 
 public:
-  // size of the header and of the message
+  // size of the header (in bits)
   uint64_t header_size_ = 64                  // 64 bit:            encode the encoded message size, including the header itself, in bits
                         + 64                  // 64 bit:            encode the original message size, in symbols
                         + 16                  // 16 bit:            encode the number of symbols in the alphabet
