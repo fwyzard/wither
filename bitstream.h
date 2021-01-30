@@ -54,6 +54,36 @@ public:
     buffer_.resize(to_block_count(bitcount));
   }
 
+  // resize the bitstream to `bitcount` bits
+  //   - if the new size is smaller, the bitstream is truncated; the data up to the new size is unchanges, and the read and write pointers
+  //     are updated to the end of the stream if they are beyond the new size;
+  //   - if the new size is larger, the bitstream is extended and the new bits are set to `value`; the data in the initial part and the
+  //     read and write pointers are unchanged.
+  void resize(size_type bitcount, value_type value = 0) {
+    if (bitcount < size_) {
+      buffer_.resize(to_block_count(bitcount));
+      if (write_index_ > bitcount) {
+        write_index_ = bitcount;
+      }
+      if (read_index_ > bitcount) {
+        read_index_ = bitcount;
+      }
+      size_ = bitcount;
+    } else if (bitcount > size_) {
+      if (size_ % block_size) {
+        // if the last block was only partially filled, append enough zeroes or ones
+        auto pos = tellp();
+        seekp(size_);
+        size_type delta = std::min(size_ % block_size, bitcount - size_);
+        write(delta, value ? all_ones : all_zeroes);
+        seekp(pos);
+      }
+      // append enough new blocks, filled with all zeroes or ones
+      buffer_.resize(to_block_count(bitcount), value ? all_ones : all_zeroes);
+      size_ = bitcount;
+    }
+  }
+
   //
   size_type size() const { return size_; }
 
@@ -230,13 +260,22 @@ public:
   }
 
   // FIXME
-  std::vector<char> bytes() const {
+  std::vector<uint8_t> bytes() const {
     size_type size = (size_ + 7) / 8;
-    std::vector<char> buffer(size);
+    std::vector<uint8_t> buffer(size);
     for (size_type i = 0; i < size; ++i) {
-      buffer[i] = static_cast<char>((buffer_[i / 4] >> ((i % 4) * 8)) & 0xFF);
+      buffer[i] = static_cast<uint8_t>((buffer_[i / sizeof(block_type)] >> ((i % sizeof(block_type)) * 8)) & 0xFF);
     }
     return buffer;
+  }
+
+  void from_bytes(std::vector<uint8_t> const& bytes) {
+    size_ = bytes.size() * 8;
+    reserve(size_);
+    for (size_type i = 0; i < bytes.size(); ++i) {
+      buffer_[i / sizeof(block_type)] &= ~ (static_cast<block_type>(0xFF) << ((i % sizeof(block_type)) * 8));
+      buffer_[i / sizeof(block_type)] |= static_cast<block_type>(bytes[i]) << ((i % sizeof(block_type)) * 8);
+    }
   }
 
 private:
